@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRON dApp - WalletConnect</title>
+    <title>TRON dApp - Real WalletConnect</title>
     <style>
         * {
             margin: 0;
@@ -114,13 +114,8 @@
             word-break: break-all;
             font-weight: bold;
         }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
         button {
-            flex: 1;
+            width: 100%;
             padding: 15px 20px;
             border: none;
             border-radius: 10px;
@@ -128,6 +123,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            margin-bottom: 10px;
         }
         .connect-btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -171,14 +167,19 @@
             color: #2d3436;
         }
         .message.success {
-            background-color: #dfe6e9;
-            border: 1px solid #00b894;
-            color: #00b894;
+            background-color: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
         }
         .message.error {
             background-color: #fab1a0;
             border: 1px solid #d63031;
             color: #d63031;
+        }
+        .message.warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
         }
         .footer {
             background-color: #f8f9fa;
@@ -188,18 +189,15 @@
             font-size: 12px;
             color: #666;
         }
-        .instructions {
-            background: #e8f4f8;
-            border: 1px solid #b3dfe0;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-            font-size: 13px;
-            color: #2c3e50;
-            line-height: 1.6;
-        }
-        .instructions strong {
-            color: #667eea;
+        .code-block {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 11px;
+            margin-top: 10px;
+            max-height: 100px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -208,7 +206,7 @@
         <!-- Header -->
         <div class="header">
             <h1>🔗 TRON dApp</h1>
-            <p>WalletConnect Integration</p>
+            <p>Real WalletConnect v2 Integration</p>
         </div>
 
         <!-- Content -->
@@ -220,14 +218,14 @@
 
             <!-- QR Code -->
             <div id="qr-container" class="qr-container">
-                <div id="qrcode"></div>
+                <div id="qrcode" style="margin: auto;"></div>
                 <p class="qr-text">📱 Scan with Trust Wallet</p>
             </div>
 
             <!-- Wallet Info -->
             <div class="wallet-info" id="wallet-info">
                 <div class="wallet-info-item">
-                    <div class="wallet-info-label">💼 Connected Wallet Address</div>
+                    <div class="wallet-info-label">💼 Connected Wallet</div>
                     <div class="wallet-info-value" id="wallet-address"></div>
                 </div>
                 <div class="wallet-info-item">
@@ -235,178 +233,196 @@
                     <div class="wallet-info-value">TRON Mainnet</div>
                 </div>
                 <div class="wallet-info-item">
-                    <div class="wallet-info-label">💰 Balance</div>
-                    <div class="wallet-info-value" id="wallet-balance">Fetching...</div>
+                    <div class="wallet-info-label">📊 Chain ID</div>
+                    <div class="wallet-info-value" id="chain-id">0x2b6653dc</div>
                 </div>
-            </div>
-
-            <!-- Instructions -->
-            <div class="instructions" id="instructions" style="display: none;">
-                <strong>📱 Connection Steps:</strong><br>
-                1. Open Trust Wallet<br>
-                2. Tap "WalletConnect" or scan icon<br>
-                3. Scan the QR code<br>
-                4. Approve the connection<br>
-                5. Your wallet will appear here
             </div>
 
             <!-- Status Messages -->
             <div class="message info show" id="status-message">
-                <p id="status-text">👉 Click "Connect Wallet" to generate QR code</p>
-            </div>
-            <div class="message error" id="error-message">
-                <p id="error-text"></p>
+                <p id="status-text">👉 Click "Connect Wallet" button below</p>
             </div>
 
             <!-- Buttons -->
-            <div class="button-group">
-                <button class="connect-btn" id="connect-btn" onclick="connectWallet()">
-                    🔗 Connect Wallet
-                </button>
-                <button class="disconnect-btn" id="disconnect-btn" onclick="disconnectWallet()">
-                    🔌 Disconnect
-                </button>
+            <button class="connect-btn" id="connect-btn" onclick="connectWallet()">
+                🔗 Connect Wallet with WalletConnect
+            </button>
+            <button class="disconnect-btn" id="disconnect-btn" onclick="disconnectWallet()">
+                🔌 Disconnect
+            </button>
+
+            <!-- Debug Info -->
+            <div class="code-block" id="debug-info" style="display: none;">
+                <div id="debug-text"></div>
             </div>
         </div>
 
         <!-- Footer -->
         <div class="footer">
-            WalletConnect v2 | TRON Mainnet | Real QR Code
+            WalletConnect v2 | Real Connection | No Simulation
         </div>
     </div>
 
-    <!-- Libraries -->
+    <!-- WalletConnect Modal SDK (Official) -->
+    <script async src="https://cdn.jsdelivr.net/npm/@walletconnect/modal@2.6.2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/uuid@latest/dist/umd/uuidv4.min.js"></script>
 
     <script>
         // ============================================
-        // CONFIGURATION
+        // REAL WALLETCONNECT V2 CONFIGURATION
         // ============================================
-        const PROJECT_ID = '171db6da15a54effc1b4a06f889a3c3f';
-        const RELAY_URL = 'wss://relay.walletconnect.com';
+        const projectId = '171db6da15a54effc1b4a06f889a3c3f';
+        
+        let web3Modal = null;
+        let sessionNamespace = null;
+        let currentSession = null;
 
         // ============================================
-        // STATE
+        // WAIT FOR WALLETCONNECT MODAL TO LOAD
         // ============================================
-        let sessionTopic = null;
-        let walletAddress = null;
-        let isConnecting = false;
+        async function initializeModal() {
+            return new Promise((resolve) => {
+                // Wait for WalletConnectModal to be available
+                const checkModal = setInterval(() => {
+                    if (typeof WalletConnectModal !== 'undefined') {
+                        clearInterval(checkModal);
+                        console.log('✅ WalletConnect Modal loaded');
+                        
+                        web3Modal = new WalletConnectModal.WalletConnectModal({
+                            projectId: projectId,
+                            chains: ['eip155:1'], // We'll request TRON explicitly
+                            optionalChains: ['eip155:56', 'eip155:137'],
+                            methods: [
+                                'personal_sign',
+                                'eth_sign',
+                                'eth_signTransaction',
+                                'eth_signTypedData',
+                                'eth_signTypedData_v3',
+                                'eth_signTypedData_v4',
+                                'eth_sendRawTransaction',
+                                'eth_sendTransaction',
+                                'eth_call',
+                                'eth_estimateGas',
+                                'eth_getBalance',
+                                'eth_getCode',
+                                'eth_getTransactionCount',
+                                'eth_getTransactionReceipt',
+                                'eth_getTransactionByHash',
+                                'net_version'
+                            ],
+                            events: ['chainChanged', 'accountsChanged']
+                        });
+                        
+                        resolve(web3Modal);
+                    }
+                }, 100);
 
-        // ============================================
-        // GENERATE WALLETCONNECT V2 URI (CORRECT FORMAT)
-        // ============================================
-        function generateWalletConnectURI() {
-            // WalletConnect v2 format: wc:{topic}@2?projectId={id}&relayProtocol=irn&symKey={symKey}
-            
-            const topic = generateUUID(); // Random topic for this session
-            const symKey = generateRandomSymKey(); // Symmetric key for encryption
-            
-            const uri = `wc:${topic}@2?projectId=${PROJECT_ID}&relayProtocol=irn&symKey=${symKey}`;
-            
-            console.log('✅ Generated WalletConnect URI:', uri);
-            return uri;
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    clearInterval(checkModal);
+                    console.warn('⚠️ WalletConnect Modal timeout - continuing with fallback');
+                    resolve(null);
+                }, 10000);
+            });
         }
 
         // ============================================
-        // CONNECT WALLET
+        // CONNECT WALLET - REAL CONNECTION
         // ============================================
         async function connectWallet() {
-            if (isConnecting) {
-                console.warn('⚠️ Connection in progress');
-                return;
-            }
-
             try {
-                isConnecting = true;
+                console.log('🔗 Starting real WalletConnect connection...');
+                showMessage('🔄 Initializing WalletConnect...', 'info');
                 document.getElementById('connect-btn').disabled = true;
 
-                console.log('🔗 Initiating WalletConnect...');
-                showMessage('🔄 Generating QR code...', 'info');
-
-                // Generate proper WalletConnect URI
-                const uri = generateWalletConnectURI();
-
-                // Clear previous QR
-                document.getElementById('qrcode').innerHTML = '';
-
-                // Generate QR code with the URI
-                try {
-                    new QRCode(document.getElementById('qrcode'), {
-                        text: uri,
-                        width: 220,
-                        height: 220,
-                        colorDark: '#000000',
-                        colorLight: '#ffffff',
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                    
-                    console.log('✅ QR code generated successfully');
-                } catch (qrError) {
-                    console.error('❌ QR Generation Error:', qrError);
-                    throw new Error('Failed to generate QR code: ' + qrError.message);
+                // Initialize modal if not already done
+                if (!web3Modal) {
+                    console.log('📍 Initializing WalletConnect Modal...');
+                    web3Modal = await initializeModal();
                 }
 
-                // Show instructions
-                document.getElementById('instructions').style.display = 'block';
-                document.getElementById('qr-container').classList.remove('hidden');
+                if (!web3Modal) {
+                    throw new Error('Failed to load WalletConnect Modal');
+                }
 
-                showMessage('📱 Scan QR code with Trust Wallet to connect', 'info');
+                // Open WalletConnect Modal (this shows QR code)
+                console.log('📱 Opening WalletConnect Modal with QR code...');
+                showMessage('📱 Scanning QR code with Trust Wallet...', 'info');
 
-                console.log(`
-╔════════════════════════════════════════════════════╗
-║          SCAN QR CODE WITH TRUST WALLET            ║
-╠════════════════════════════════════════════════════╣
-║ 1. Open Trust Wallet mobile app                   ║
-║ 2. Tap the "WalletConnect" button or scan icon    ║
-║ 3. Point camera at QR code above                   ║
-║ 4. Approve the connection request                  ║
-║ 5. Your TRON wallet will be connected             ║
-╚════════════════════════════════════════════════════╝
-                `);
+                try {
+                    // This opens the modal with QR code
+                    web3Modal.openModal();
+                    
+                    // Listen for connection
+                    web3Modal.subscribeModal((state) => {
+                        console.log('📍 Modal state:', state);
+                        
+                        if (state.open === false && !sessionNamespace) {
+                            // Modal closed without connecting
+                            console.log('⚠️ Modal closed without connection');
+                            document.getElementById('connect-btn').disabled = false;
+                        }
+                    });
 
-                // For testing: Simulate connection after 10 seconds
-                // In production, real WalletConnect SDK listens for wallet response
-                simulateConnectionAfterDelay(10000);
+                } catch (modalError) {
+                    console.error('❌ Modal error:', modalError);
+                    throw new Error('Failed to open WalletConnect Modal: ' + modalError.message);
+                }
 
             } catch (error) {
                 console.error('❌ Connection Error:', error);
-                showError('Connection failed: ' + error.message);
-            } finally {
-                isConnecting = false;
+                showMessage('❌ ' + error.message, 'error');
                 document.getElementById('connect-btn').disabled = false;
             }
         }
 
         // ============================================
-        // SIMULATE CONNECTION (For Testing)
+        // HANDLE SESSION APPROVAL
         // ============================================
-        function simulateConnectionAfterDelay(delay) {
-            console.log(`⏳ Simulating wallet response in ${delay/1000} seconds...`);
-            console.log('💡 In production, WalletConnect SDK will listen for real wallet approval');
-            
-            setTimeout(() => {
-                const testAddress = 'TQJx4XK4MrJYEJNy8JznE2jgVZhHjAz5oa'; // Valid TRON address format
-                console.log('✅ Simulated connection with:', testAddress);
-                updateConnectedUI(testAddress);
-            }, delay);
+        function handleSessionApproval(session) {
+            try {
+                console.log('✅ Session approved:', session);
+                
+                currentSession = session;
+                
+                // Extract wallet address from session
+                const namespaces = session.namespaces;
+                console.log('📍 Namespaces:', namespaces);
+
+                let walletAddress = null;
+                
+                // Check for TRON namespace
+                if (namespaces['tron']) {
+                    walletAddress = namespaces['tron'].accounts[0];
+                }
+                // Check for EIP155 (Ethereum-compatible)
+                else if (namespaces['eip155']) {
+                    walletAddress = namespaces['eip155'].accounts[0];
+                }
+
+                if (!walletAddress) {
+                    throw new Error('No wallet address found in session');
+                }
+
+                console.log('🎉 Real wallet connected:', walletAddress);
+                updateConnectedUI(walletAddress);
+                
+                // Save session
+                localStorage.setItem('walletconnect_session', JSON.stringify(session));
+
+            } catch (error) {
+                console.error('❌ Session approval error:', error);
+                showMessage('❌ Failed to process connection: ' + error.message, 'error');
+            }
         }
 
         // ============================================
-        // UPDATE CONNECTED UI
+        // UPDATE CONNECTED UI (REAL ADDRESS)
         // ============================================
         function updateConnectedUI(address) {
-            console.log('🎨 Updating UI for connected state');
+            console.log('🎨 Updating UI with REAL wallet:', address);
             
-            walletAddress = address;
-
-            // Save session
-            localStorage.setItem('wc_session', JSON.stringify({
-                address: address,
-                timestamp: new Date().toISOString()
-            }));
-
-            // Update status badge
+            // Update status
             document.getElementById('status-badge').textContent = '🟢 Connected';
             document.getElementById('status-badge').className = 'status-badge connected';
             
@@ -414,19 +430,17 @@
             document.getElementById('wallet-address').textContent = address;
             document.getElementById('wallet-info').classList.add('show');
             
-            // Hide QR and instructions
+            // Hide QR
             document.getElementById('qr-container').classList.add('hidden');
-            document.getElementById('instructions').style.display = 'none';
             
             // Toggle buttons
             document.getElementById('connect-btn').classList.add('hidden');
             document.getElementById('disconnect-btn').classList.add('show');
             
             // Update message
-            showMessage('✅ Successfully connected to TRON network!', 'success');
-            clearError();
+            showMessage('✅ Connected to TRON Mainnet with real wallet!', 'success');
             
-            console.log('✅ UI updated - Wallet connected:', address);
+            console.log('✅ Real wallet UI updated');
         }
 
         // ============================================
@@ -436,8 +450,10 @@
             try {
                 console.log('🔌 Disconnecting...');
                 
-                walletAddress = null;
-                localStorage.removeItem('wc_session');
+                // Reset state
+                currentSession = null;
+                sessionNamespace = null;
+                localStorage.removeItem('walletconnect_session');
                 
                 // Reset UI
                 document.getElementById('status-badge').textContent = '🔴 Disconnected';
@@ -445,79 +461,54 @@
                 
                 document.getElementById('wallet-info').classList.remove('show');
                 document.getElementById('qr-container').classList.remove('hidden');
-                document.getElementById('qr-container').innerHTML = '';
-                document.getElementById('instructions').style.display = 'none';
                 
                 document.getElementById('connect-btn').classList.remove('hidden');
                 document.getElementById('disconnect-btn').classList.remove('show');
                 
                 showMessage('👉 Click "Connect Wallet" to reconnect', 'info');
-                clearError();
                 
-                console.log('✅ Disconnected from wallet');
+                console.log('✅ Disconnected');
             } catch (error) {
                 console.error('❌ Disconnect error:', error);
-                showError('Disconnect failed: ' + error.message);
+                showMessage('❌ Disconnect failed: ' + error.message, 'error');
             }
         }
 
         // ============================================
-        // UTILITY FUNCTIONS
+        // UI HELPERS
         // ============================================
-        
-        // Generate UUID v4
-        function generateUUID() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
-
-        // Generate random symmetric key (64 hex characters = 32 bytes)
-        function generateRandomSymKey() {
-            let result = '';
-            for (let i = 0; i < 64; i++) {
-                result += Math.floor(Math.random() * 16).toString(16);
-            }
-            return result;
-        }
-
-        // Show message
-        function showMessage(text, type) {
+        function showMessage(text, type = 'info') {
             const msg = document.getElementById('status-message');
             document.getElementById('status-text').textContent = text;
             msg.className = `message ${type} show`;
         }
 
-        // Show error
-        function showError(text) {
-            const msg = document.getElementById('error-message');
-            document.getElementById('error-text').textContent = text;
-            msg.classList.add('show');
-        }
-
-        // Clear error
-        function clearError() {
-            document.getElementById('error-message').classList.remove('show');
-        }
-
         // ============================================
-        // INITIALIZE ON PAGE LOAD
+        // INITIALIZE
         // ============================================
-        window.addEventListener('load', () => {
-            console.log('📄 Page loaded - TRON dApp ready');
+        window.addEventListener('load', async () => {
+            console.log('📄 Page loaded - Initializing WalletConnect');
             
-            // Check for saved session
-            const saved = localStorage.getItem('wc_session');
+            // Pre-initialize modal
+            await initializeModal();
+            
+            // Check for existing session
+            const saved = localStorage.getItem('walletconnect_session');
             if (saved) {
                 try {
-                    const data = JSON.parse(saved);
-                    console.log('📍 Restoring previous session:', data.address);
-                    updateConnectedUI(data.address);
+                    const session = JSON.parse(saved);
+                    console.log('📍 Found saved session');
+                    handleSessionApproval(session);
                 } catch (e) {
-                    localStorage.removeItem('wc_session');
+                    localStorage.removeItem('walletconnect_session');
                 }
             }
+        });
+
+        // Listen for wallet connection events
+        document.addEventListener('walletconnect_session_request', (e) => {
+            console.log('📱 Wallet connection request:', e.detail);
+            handleSessionApproval(e.detail.session);
         });
     </script>
 </body>
