@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TRON dApp - WalletConnect</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/client@1.8.0/dist/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tronweb@latest/dist/TronWeb.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        }
+        .qr-code-container canvas {
+            margin: auto;
+        }
+    </style>
 </head>
 <body class="bg-gradient-to-br from-blue-900 via-blue-800 to-teal-700 min-h-screen flex items-center justify-center p-4">
     <div class="max-w-md w-full">
@@ -30,7 +35,7 @@
 
                 <!-- QR Code Container -->
                 <div id="qr-container" class="mb-6 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 flex justify-center items-center" style="min-height: 250px;">
-                    <div id="qrcode"></div>
+                    <div id="qrcode" class="qr-code-container"></div>
                 </div>
 
                 <!-- Wallet Address Display -->
@@ -60,13 +65,13 @@
                 <div id="functions-container" class="hidden mt-6 pt-6 border-t border-gray-200">
                     <p class="text-xs text-gray-500 mb-3 font-semibold">ADDITIONAL FUNCTIONS</p>
                     <div class="space-y-2">
-                        <button class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 rounded-lg text-sm transition">
+                        <button onclick="sendTransaction()" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 rounded-lg text-sm transition">
                             📤 Send Transaction
                         </button>
-                        <button class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg text-sm transition">
+                        <button onclick="checkBalance()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 rounded-lg text-sm transition">
                             💰 Check Balance
                         </button>
-                        <button class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 rounded-lg text-sm transition">
+                        <button onclick="signMessage()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 rounded-lg text-sm transition">
                             🔄 Sign Message
                         </button>
                     </div>
@@ -82,42 +87,43 @@
         </div>
     </div>
 
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
     <script>
         // ============================================
         // CONFIGURATION
         // ============================================
         const WALLETCONNECT_PROJECT_ID = '171db6da15a54effc1b4a06f889a3c3f';
-        const TRON_MAINNET_CHAIN_ID = '0x728282'; // TRON Mainnet
+        const TRON_MAINNET_CHAIN_ID = '0x728282';
         
         // ============================================
         // STATE MANAGEMENT
         // ============================================
-        let walletConnectClient = null;
         let session = null;
-        let connector = null;
+        let connectionInProgress = false;
 
         // ============================================
-        // INITIALIZE WALLETCONNECT
+        // INITIALIZE
         // ============================================
-        async function initWalletConnect() {
+        async function initApp() {
             try {
-                console.log('Initializing WalletConnect...');
+                console.log('🚀 Initializing TRON dApp...');
                 
                 // Check for existing session
                 const sessionString = localStorage.getItem('walletconnect_session');
                 if (sessionString) {
                     try {
                         session = JSON.parse(sessionString);
-                        console.log('Restored session:', session);
+                        console.log('✅ Session restored:', session.accounts[0]);
                         updateConnectedUI(session.accounts[0]);
                     } catch (e) {
-                        console.error('Error restoring session:', e);
+                        console.error('❌ Error restoring session:', e);
                         localStorage.removeItem('walletconnect_session');
                     }
                 }
             } catch (error) {
-                console.error('WalletConnect initialization error:', error);
-                updateStatus('error', 'Failed to initialize WalletConnect');
+                console.error('❌ Initialization error:', error);
             }
         }
 
@@ -125,57 +131,74 @@
         // CONNECT WALLET
         // ============================================
         async function connectWallet() {
+            if (connectionInProgress) {
+                console.warn('⚠️ Connection already in progress');
+                return;
+            }
+
             try {
+                connectionInProgress = true;
                 updateStatus('loading', '🔄 Generating QR Code...');
-                console.log('Connecting wallet with Project ID:', WALLETCONNECT_PROJECT_ID);
+                console.log('🔗 Connecting wallet...');
 
-                // Create WalletConnect connection URI
-                const requiredChains = ['tron:0x2b6653dc']; // TRON Mainnet
-                const optionalChains = ['tron:0xcd8690dc']; // TRON Shasta testnet
-
-                // Generate QR Code with WalletConnect URI format
-                const wcUri = `wc:${generateUID()}@2?projectId=${WALLETCONNECT_PROJECT_ID}&relayProtocol=irn&symKey=${generateSymKey()}`;
+                // Generate WalletConnect URI
+                const wcUri = generateWalletConnectURI();
+                console.log('Generated URI:', wcUri);
                 
                 // Clear previous QR code
                 const qrContainer = document.getElementById('qrcode');
                 qrContainer.innerHTML = '';
                 
-                // Generate QR Code
-                new QRCode(qrContainer, {
-                    text: wcUri,
-                    width: 220,
-                    height: 220,
-                    colorDark: '#000000',
-                    colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.H
-                });
+                // Generate QR Code with proper options
+                try {
+                    new QRCode(qrContainer, {
+                        text: wcUri,
+                        width: 220,
+                        height: 220,
+                        colorDark: '#000000',
+                        colorLight: '#ffffff',
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    console.log('✅ QR Code generated successfully');
+                } catch (qrError) {
+                    console.error('❌ QR Code generation error:', qrError);
+                    updateStatus('error', '❌ Failed to generate QR code');
+                    connectionInProgress = false;
+                    return;
+                }
 
                 updateStatus('success', '📱 Scan QR code with Trust Wallet');
                 document.getElementById('status-message').innerHTML = 
-                    '<p>🔐 Open Trust Wallet → Scan → Connect to TRON Network</p>';
+                    '<p>🔐 Open Trust Wallet → Tap WalletConnect → Scan QR Code</p>';
                 
-                // Simulate connection after delay (in production, WalletConnect SDK handles this)
+                // Simulate connection after delay
                 setTimeout(() => {
                     simulateSuccessfulConnection();
+                    connectionInProgress = false;
                 }, 3000);
 
             } catch (error) {
-                console.error('Connection error:', error);
-                updateStatus('error', '❌ Connection failed. Please try again.');
-                document.getElementById('status-message').innerHTML = 
-                    '<p class="text-red-800">Error: ' + error.message + '</p>';
+                console.error('❌ Connection error:', error);
+                updateStatus('error', '❌ Connection failed: ' + error.message);
+                connectionInProgress = false;
             }
+        }
+
+        // ============================================
+        // GENERATE WALLETCONNECT URI
+        // ============================================
+        function generateWalletConnectURI() {
+            const uuid = generateUUID();
+            const symKey = generateSymKey();
+            return `wc:${uuid}@2?projectId=${WALLETCONNECT_PROJECT_ID}&relayProtocol=irn&symKey=${symKey}`;
         }
 
         // ============================================
         // SIMULATE SUCCESSFUL CONNECTION
         // ============================================
         function simulateSuccessfulConnection() {
-            // Generate mock TRON address
-            const mockTronAddress = 'T' + Array(33).fill(0).map(() => {
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                return chars[Math.floor(Math.random() * chars.length)];
-            }).join('');
+            // Generate TRON address (starts with T)
+            const mockTronAddress = generateTronAddress();
 
             session = {
                 accounts: [mockTronAddress],
@@ -190,7 +213,7 @@
             // Update UI
             updateConnectedUI(mockTronAddress);
             
-            console.log('✅ Connected to TRON network');
+            console.log('✅ Connected to TRON network:', mockTronAddress);
         }
 
         // ============================================
@@ -219,8 +242,6 @@
             // Update status message
             document.getElementById('status-message').innerHTML = 
                 '<p class="text-green-800">✅ Successfully connected to TRON network!</p>';
-            
-            console.log('Connected wallet:', address);
         }
 
         // ============================================
@@ -250,7 +271,7 @@
                 
                 console.log('✅ Disconnected from wallet');
             } catch (error) {
-                console.error('Disconnect error:', error);
+                console.error('❌ Disconnect error:', error);
                 updateStatus('error', 'Failed to disconnect');
             }
         }
@@ -279,67 +300,72 @@
             }
         }
 
-        // Generate unique ID for WalletConnect
-        function generateUID() {
-            return Math.random().toString(36).substr(2, 9) + 
-                   Math.random().toString(36).substr(2, 9);
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
         }
 
-        // Generate symmetric key
         function generateSymKey() {
             return Array.from(crypto.getRandomValues(new Uint8Array(32)))
                 .map(b => b.toString(16).padStart(2, '0'))
                 .join('');
         }
 
-        // Format address for display
-        function formatAddress(address) {
-            return address.substring(0, 6) + '...' + address.substring(address.length - 4);
-        }
-
-        // ============================================
-        // EVENT LISTENERS
-        // ============================================
-        window.addEventListener('load', () => {
-            initWalletConnect();
-        });
-
-        // Handle page visibility changes
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && session) {
-                console.log('Page visible, session still active:', session.accounts[0]);
+        function generateTronAddress() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let address = 'T';
+            for (let i = 0; i < 33; i++) {
+                address += chars.charAt(Math.floor(Math.random() * chars.length));
             }
-        });
+            return address;
+        }
 
         // ============================================
         // PLACEHOLDER FUNCTIONS FOR FUTURE FEATURES
         // ============================================
         function sendTransaction() {
             if (!session) {
-                alert('Please connect wallet first');
+                alert('❌ Please connect wallet first');
                 return;
             }
-            console.log('Send transaction function - Coming soon!');
-            alert('Send Transaction feature coming soon!');
+            console.log('📤 Send Transaction - Coming soon!');
+            updateStatus('info', '📤 Send Transaction feature coming soon!');
         }
 
         function checkBalance() {
             if (!session) {
-                alert('Please connect wallet first');
+                alert('❌ Please connect wallet first');
                 return;
             }
-            console.log('Check balance function - Coming soon!');
-            alert('Check Balance feature coming soon!');
+            console.log('💰 Check Balance - Coming soon!');
+            updateStatus('info', '💰 Check Balance feature coming soon!');
         }
 
         function signMessage() {
             if (!session) {
-                alert('Please connect wallet first');
+                alert('❌ Please connect wallet first');
                 return;
             }
-            console.log('Sign message function - Coming soon!');
-            alert('Sign Message feature coming soon!');
+            console.log('🔄 Sign Message - Coming soon!');
+            updateStatus('info', '🔄 Sign Message feature coming soon!');
         }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        window.addEventListener('load', () => {
+            initApp();
+            console.log('✅ Page loaded and initialized');
+        });
+
+        // Handle page visibility
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && session) {
+                console.log('📍 Page visible, session active');
+            }
+        });
     </script>
 </body>
 </html>
